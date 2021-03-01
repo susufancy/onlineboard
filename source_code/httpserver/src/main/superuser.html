@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1,user-scalable=0">
+    <title>Drawing</title>
+</head>
+<body>
+<div id="content">
+    <label for="color_picker" hidden></label>
+    <input type="color" id="color_picker" />
+    <input type="button" id="clear_button" value="Clear" />
+    <input type="button" id="eraser_choose" value="Eraser"/>
+    <input type="button" id="pencil_choose" value="Pencil"/>
+</div>
+
+<div class="container">
+    <div class="collapse navbar-collapse">
+        <ul class="nav navbar-nav">
+        </ul>
+    </div>
+    <canvas id="canvas"></canvas>
+</div>
+ <!-- <div>你的用户名:<input type="text" id="username" /></div> -->
+    <!-- <button type="button" onclick="connectServer()">连接服务器</button> -->
+    <!-- <button type="button" onclick="checkrequest()">查看申请权限的用户</button> -->
+    <header class="content-center">
+        <select id="select-user" style="width: auto;">       
+        </select>
+    </header>
+    <!-- <div>给予哪位用户权限？<input type="text" id="response_user" /></div> -->
+    <button type="button" id="authority" onclick="request()">给予权限</button>
+    <!-- <div id="txtcontent" style="width: 500px;height: 200px;border: 1px solid gray"></div> -->
+</body>
+</html>
+<script>
+    var ws;
+    var allusers={};
+     function connectServer(){
+    //  获取canvas标签
+    var canvasname = document.getElementById('canvas');
+    //  获取 2D渲染接口
+    const ctx = canvas.getContext('2d');
+    //  将渲染颜色设置为 黑色 #000000
+    ctx.strokeStyle = '#000000';
+    //
+    var isallowed = true; //是否登录到服务器上
+    var username = "power";
+    canvasname.height=document.documentElement.clientWidth*0.2+document.documentElement.clientHeight*0.5;
+    canvasname.width=document.documentElement.clientWidth*0.8;
+    // canvasname.width=document.documentElement.clientWidth;
+      ///////////////////////function define
+    const pencil_choose = document.getElementById('pencil_choose');
+    const eraser_choose=document.getElementById('eraser_choose');
+    const color_picker = document.getElementById('color_picker');
+    const clear_button = document.getElementById('clear_button'); 
+    ///////////////////////////////////////////////////
+    var isPencil=true;
+    var isDrawing;
+    var local_color ='#000000';
+var x1;
+var y1;
+var point = {};
+ctx.setLineDash([]);
+ ws = new WebSocket('ws://localhost:8089');
+lisenToUser(canvas)
+ //////////////////////function sets
+ pencil_choose.onclick=function(){
+     isPencil=true;
+    }
+    eraser_choose.onclick=function(){
+       isPencil=false;
+    }
+    clear_button.onclick=function (e) {
+        //  清空画板
+        ctx.clearRect(0,0,canvasname.width,canvasname.height);
+        if(isallowed)
+        {
+            sendPoint(0,0,4,canvasname.height,canvasname.width);
+        }
+    }
+    color_picker.onchange = function (e) {
+        console.log('Color changed to.' + color_picker.value);
+        //  改变画笔颜色
+        ctx.strokeStyle = color_picker.value;
+        isPencil=true;
+        local_color=color_picker.value;
+        message={
+            type: 5,
+            color:color_picker.value,
+        }
+        if(isallowed){
+            ws.send("data:"+JSON.stringify(message));
+        }
+    };
+ 
+/////////////////////////////////////
+//ws.onopen = function () {}
+function lisenToUser(canvas){
+
+    if(document.body.ontouchstart!==undefined){
+        lisenToTouch(canvas);
+    }else{
+        lisenToMouse(canvas);
+    }
+}
+
+function lisenToTouch(canvas){
+ 
+    canvas.ontouchstart = function (e) {
+        ctx.strokeStyle = local_color;
+        message={
+            type: 5,
+            color:local_color,
+        }
+        if(isallowed){
+            ws.send("data:"+JSON.stringify(message));
+        }
+        ctx.beginPath();
+        x1=e.touches[0].clientX-canvasname.offsetLeft;
+        y1=e.touches[0].clientY-canvasname.offsetTop;
+    isDrawing = true;
+    if(isPencil){
+    ctx.moveTo(x1,y1);
+    if(isallowed==true){
+        
+    sendPoint(x1,y1,1,canvasname.height,canvasname.width);
+    }
+    }else{
+         ctx.clearRect(x1-25,y1-25,50,50)
+         if(isallowed==true){
+        
+        sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+    }
+    }
+    }
+    canvas.ontouchmove = function (e) {
+      if(isDrawing){
+        x1=e.touches[0].clientX-canvasname.offsetLeft;
+        y1=e.touches[0].clientY-canvasname.offsetTop;
+        if(isPencil){
+        ctx.lineTo(x1,y1);
+        ctx.stroke();
+        if(isallowed==true){
+        sendPoint(x1,y1,2,canvasname.height,canvasname.width);
+        }
+      }else{
+        
+          ctx.clearRect(x1-25,y1-25,50,50)
+          if(isallowed==true){
+          sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+          }
+      }
+    }
+    }
+    canvas.ontouchup = function (e) {
+       isDrawing = false;
+    }
+}
+
+function lisenToMouse(canvas){
+   
+    canvas.onmousedown = function (e) {
+        ctx.strokeStyle = local_color;
+        message={
+            type: 5,
+            color:local_color,
+        }
+        if(isallowed){
+            ws.send("data:"+JSON.stringify(message));
+        }
+        ctx.beginPath();
+        x1=e.clientX-canvasname.offsetLeft;
+        y1=e.clientY-canvasname.offsetTop;
+    isDrawing = true;
+    if(isPencil){
+    ctx.moveTo(x1,y1);
+    if(isallowed==true){
+         sendPoint(x1,y1,1,canvasname.height,canvasname.width);
+    }
+}else{
+    ctx.clearRect(x1-25,y1-25,50,50)
+    if(isallowed==true){
+         sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+       }
+    }
+    }
+
+    canvas.onmousemove = function (e) {
+      if(isDrawing){
+        x1=e.clientX-canvasname.offsetLeft;
+        y1=e.clientY-canvasname.offsetTop;
+        if(isPencil){
+        ctx.lineTo(x1,y1);
+        ctx.stroke();
+        if(isallowed==true){
+        sendPoint(x1,y1,2,canvasname.height,canvasname.width);
+        }
+      }else{
+        ctx.clearRect(x1-25,y1-25,50,50)
+             if(isallowed==true){
+                sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+             }
+      }
+    }
+    }
+    canvas.onmouseup = function (e) {
+       isDrawing = false;
+    }
+}
+ws.onopen = function () {
+        ws.send('account:' + username);//一登录就请求
+        alert("log in");
+}
+ws.onclose = function () {
+    ws.send("close!");
+}
+ws.onerror = function () {
+    ws.send("close!");
+}
+ws.onmessage = function (event) {
+    var ed = event.data;
+            console.log(ed);
+            console.log(ed.indexOf("data:"));
+            if (ed.indexOf("ask_user:") == 0) {
+                var askuser = ed.substring(9);
+                allusers[askuser] = 1;
+                console.log(askuser+"请求了权限");
+
+            }else if(ed.indexOf("data:") == 0){
+                console.log("即将更新画板");
+                var data = JSON.parse(event.data.substring(5));
+                if(data.type == 1){
+                ctx.beginPath();
+                       ctx.moveTo(data.x*canvasname.width/data.width,data.y*canvasname.height/data.height);
+                  }else if(data.type == 2){
+                       ctx.lineTo(data.x*canvasname.width/data.width,data.y*canvasname.height/data.height);
+                       ctx.stroke();
+                    } else if(data.type==3){
+                        ctx.clearRect((data.x-25)*canvasname.width/data.width,(data.y-25)*canvasname.height/data.height,50*canvasname.width/data.width,50*canvasname.height/data.height)
+                        
+                    }else if(data.type==4){
+                        ctx.clearRect(0,0,canvasname.width,canvasname.height);
+                    }else if(data.type==5)
+                    {
+                        ctx.strokeStyle=data.color;
+                    }
+            
+            }else if(ed.indexOf("connect_user:") == 0){
+                var connectuser = ed.substring(13);
+                console.log(connectuser+"加入了服务器");
+                allusers[connectuser] = 0; //0代表未请求权限
+            }
+            else if(ed.indexOf("connection_closed:") == 0) {
+                
+                var disconnect_user = ed.substring(18);
+                allusers[disconnect_user] = 0;
+            }
+}
+
+
+   
+ 
+function sendPoint(xx,yy,type,h=canvasname.height,w=canvasname.width) {
+    point = {
+        type:type,
+        x:xx,
+        y:yy,
+        height:h,
+        width:w,
+    }
+    // 这里我们定义传过去的值是json字符串的形式
+   // 这样方便我们接收后端传的数据进行解析处理
+    ws.send("data:"+JSON.stringify(point));
+}
+}
+    //  function checkrequest() {
+    //         var p = document.createElement('p');
+    //         p.innerHTML = '<span>请求权限的用户有:</span>';
+    //         for (var key in allusers){
+    //             if (allusers[key] == 1) { //显示请求权限的用户名
+    //                 p.innerHTML += key;
+    //                 p.innerHTML += "  ";
+    //             }
+    //         }
+    //         document.getElementById('txtcontent').appendChild(p);
+    //     }
+
+    //     function request(){
+    //         var re_username = document.getElementById('response_user').value;
+    //         ws.send("response_user:"+re_username);
+    //     }
+    setInterval(function(){checkrequest()},500);
+        function checkrequest() {
+            var selectnum  = document.getElementById('select-user').options.length;
+            var num = 0;
+            for (var key in allusers){
+                if(allusers[key] == 1) {
+                    num++;
+                }
+            }
+            if (selectnum != num){
+                while (document.getElementById("select-user").options.length>0)
+　　            {
+　　            document.getElementById("select-user").options.remove(0);
+　　                }
+                var selectView = document.getElementById('select-user');
+                var cnt = 0;
+                for (var key in allusers){
+                    if (allusers[key] == 1) { //显示请求权限的用户名
+                        selectView[cnt] = new Option(key);
+                        cnt++;
+                    }
+                }
+            }
+            
+        }
+
+
+        function request(){
+            var re_username = document.getElementById('select-user').value;
+            console.log("debug:");
+            console.log(re_username);
+            ws.send("response_user:"+re_username);
+        }
+        window.onbeforeunload=function(e){     
+            console.log("即将关闭页面，请清空后端数据");
+　　         ws.send("close!");
+        }
+        window.onload=function()
+        {
+            connectServer();
+        }
+
+</script>
+<style>
+    #canvas {
+        background-color: white;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+    }
+
+    .container {
+            margin: 0 auto;
+            width: 75%;
+            height: 60%;
+        }
+
+    #content {
+        position: absolute;
+    }
+    #clear_button{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:80px;
+        font-size: 20px;
+    }
+    #color_picker{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:230px;
+        font-size: 20px;
+    }
+    #eraser_choose{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:130px;
+        font-size: 20px;
+    }
+    #pencil_choose{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:180px;
+        font-size: 20px;
+    }
+    body {
+        background: rgba(28, 123, 167, 0.692);
+        height: 100%;
+        width: 100%;
+        position: absolute;
+       
+    }
+    #txtcontent{
+        background-color: #ffffff;
+    }
+    #select-user{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        font-size: 17px;
+        top:380px;
+    }
+    #authority{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        font-size: 17px;
+        top:330px;
+    }
+</style>
+
+
+   
+   
+
