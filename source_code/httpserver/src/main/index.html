@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1,user-scalable=0">
+    <title>Drawing</title>
+</head>
+<body>
+<div id="content">
+    <label for="color_picker" hidden></label>
+    <input type="color" id="color_picker" />
+    <input type="button" id="clear_button" value="Clear" />
+    <input type="button" id="eraser_choose" value="Eraser"/>
+    <input type="button" id="pencil_choose" value="Pencil"/>
+</div>
+
+<div class="container">
+    <div class="collapse navbar-collapse">
+        <ul class="nav navbar-nav">
+        </ul>
+    </div>
+    <canvas id="canvas"></canvas>
+</div>
+   
+<div id="input_username">你的用户名:</div>
+<input  type="text" id="username" ></input>
+<button id="ask_connect" type="button" onclick="connect()">请求连接</button>
+<button id="ask_canvas" type="button" onclick="requestboard()">请求画板</button>
+</body>
+</html>
+<script>
+    var ws;
+function connect(){
+    //  获取canvas标签
+    var canvasname = document.getElementById('canvas');
+    //  获取 2D渲染接口
+    const ctx = canvas.getContext('2d');
+    //  将渲染颜色设置为 黑色 #000000
+    ctx.strokeStyle = '#000000';
+    //
+    var isallowed = false; //是否登录到服务器上
+    var username = document.getElementById('username').value;
+    canvasname.height=document.documentElement.clientWidth*0.2+document.documentElement.clientHeight*0.5;
+    canvasname.width=document.documentElement.clientWidth*0.8;
+       ///////////////////////function define
+    const pencil_choose = document.getElementById('pencil_choose');
+    const eraser_choose=document.getElementById('eraser_choose');
+    const color_picker = document.getElementById('color_picker');
+    const clear_button = document.getElementById('clear_button'); 
+    ///////////////////////////////////////////////////
+    var isDrawing;
+    var isPencil=true;
+    ctx.setLineDash([]);
+    var local_color ='#000000';
+var x1;
+var y1;
+var point = {};
+
+ ws = new WebSocket('ws://10.164.106.188:8089');
+lisenToUser(canvas)
+ //////////////////////function sets
+ pencil_choose.onclick=function(){
+     isPencil=true;
+    }
+    eraser_choose.onclick=function(){
+       isPencil=false;
+    }
+    clear_button.onclick=function (e) {
+        //  清空画板
+        ctx.clearRect(0,0,canvasname.width,canvasname.height);
+        if(isallowed)
+        {
+            sendPoint(0,0,4,canvasname.height,canvasname.width);
+        }
+    }
+    color_picker.onchange = function (e) {
+        console.log('Color changed to.' + color_picker.value);
+        //  改变画笔颜色
+        ctx.strokeStyle = color_picker.value;
+        local_color=color_picker.value;
+        isPencil=true;
+        message={
+            type: 5,
+            color:color_picker.value,
+        }
+        if(isallowed){
+            ws.send("data:"+JSON.stringify(message));
+        }
+    };
+ 
+/////////////////////////////////////
+function lisenToUser(canvas){
+
+    if(document.body.ontouchstart!==undefined){
+        lisenToTouch(canvas);
+    }else{
+        lisenToMouse(canvas);
+    }
+}
+function lisenToTouch(canvas){
+
+    canvas.ontouchstart = function (e) {
+        ctx.strokeStyle = local_color;
+        message={
+            type: 5,
+            color:local_color,
+        }
+        if(isallowed){
+            ws.send("data:"+JSON.stringify(message));
+        }
+        if(isallowed){
+        ctx.beginPath();
+        
+        x1=e.touches[0].clientX-canvasname.offsetLeft;
+        y1=e.touches[0].clientY-canvasname.offsetTop;
+    isDrawing = true;
+    if(isPencil){
+    ctx.moveTo(x1,y1);
+    if(isallowed==true){
+        
+    sendPoint(x1,y1,1,canvasname.height,canvasname.width);
+    }
+    }else{
+         ctx.clearRect(x1-25,y1-25,50,50)
+         if(isallowed==true){
+        
+        sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+    }
+    }
+    }
+    }
+    canvas.ontouchmove = function (e) {
+      if(isDrawing){
+        x1=e.touches[0].clientX-canvasname.offsetLeft;
+        y1=e.touches[0].clientY-canvasname.offsetTop;
+        if(isallowed){
+        if(isPencil){
+        ctx.lineTo(x1,y1);
+        ctx.stroke();
+        if(isallowed==true){
+        sendPoint(x1,y1,2,canvasname.height,canvasname.width);
+        }
+      }else{
+        
+          ctx.clearRect(x1-25,y1-25,50,50)
+          if(isallowed==true){
+          sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+          }
+      }
+    }
+    }
+    }
+    canvas.ontouchup = function (e) {
+       isDrawing = false;
+    }
+}
+
+function lisenToMouse(canvas){
+  
+    canvas.onmousedown = function (e) {
+        ctx.strokeStyle = local_color;
+        message={
+            type: 5,
+            color:local_color,
+        }
+        if(isallowed){
+            ws.send("data:"+JSON.stringify(message));
+        }
+        if(isallowed){
+        ctx.beginPath();
+        x1=e.clientX-canvasname.offsetLeft;
+        y1=e.clientY-canvasname.offsetTop;
+    isDrawing = true;
+    if(isPencil){
+    ctx.moveTo(x1,y1);
+    if(isallowed==true){
+         sendPoint(x1,y1,1,canvasname.height,canvasname.width);
+    }
+}else{
+    ctx.clearRect(x1-25,y1-25,50,50)
+    if(isallowed==true){
+         sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+       }
+    }
+    }
+    }
+    canvas.onmousemove = function (e) {
+      if(isDrawing){
+        x1=e.clientX-canvasname.offsetLeft;
+        y1=e.clientY-canvasname.offsetTop;
+        if(isallowed){
+        if(isPencil){
+        ctx.lineTo(x1,y1);
+        ctx.stroke();
+        if(isallowed==true){
+        sendPoint(x1,y1,2,canvasname.height,canvasname.width);
+        }
+      }else{
+        ctx.clearRect(x1-25,y1-25,50,50)
+             if(isallowed==true){
+                sendPoint(x1,y1,3,canvasname.height,canvasname.width);
+             }
+      }
+    }
+    }
+    }
+    canvas.onmouseup = function (e) {
+       isDrawing = false;
+    }
+}
+ws.onopen = function () {
+        ws.send('account:' + username);//一登录就请求
+        alert("log in");
+}
+
+ws.onmessage = function (event) {
+   // 后端发过来的也是json字符串格式的数据，所以需要解析
+   if (event.data == "response:1") {
+                console.log("获得了权限");
+                alert("获得绘画权限！")
+                isallowed = true;
+
+            }else if (event.data == "response:0") {
+                console.log("没有获得权限");
+                isallowed = false;
+                
+            }
+                else{
+    var data = JSON.parse(event.data.substring(5));
+    if(data.type == 1){
+                ctx.beginPath();
+                       ctx.moveTo(data.x*canvasname.width/data.width,data.y*canvasname.height/data.height);
+                  }else if(data.type == 2){
+                       ctx.lineTo(data.x*canvasname.width/data.width,data.y*canvasname.height/data.height);
+                       ctx.stroke();
+                    } else if(data.type==3){
+                        ctx.clearRect((data.x-25)*canvasname.width/data.width,(data.y-25)*canvasname.height/data.height,50*canvasname.width/data.width,50*canvasname.height/data.height)
+                        
+                    }else if(data.type==4){
+                        ctx.clearRect(0,0,canvasname.width,canvasname.height);
+                    }else if(data.type==5)
+                    {
+                        ctx.strokeStyle=data.color;
+                    }
+                   
+ }
+}
+function sendPoint(xx,yy,type,h=canvasname.height,w=canvasname.width) {
+    point = {
+        type:type,
+        x:xx,
+        y:yy,
+        height:h,
+        width:w,
+    }
+    // 这里我们定义传过去的值是json字符串的形式
+   // 这样方便我们接收后端传的数据进行解析处理
+    ws.send("data:"+JSON.stringify(point));
+}
+}
+
+     function requestboard() {
+           ws.send("request:");
+        }
+        window.onbeforeunload=function(e){     
+　　         ws.send("close!");
+        }
+
+</script>
+<style>
+    #canvas {
+        background-color: white;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+    }
+
+    .container {
+            margin: 0 auto;
+            width: 75%;
+            height: 60%;
+        }
+        #clear_button{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:80px;
+        font-size: 20px;
+    }
+    #eraser_choose{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:130px;
+        font-size: 20px;
+    }
+    #color_picker{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:230px;
+        font-size: 20px;
+    }
+    #pencil_choose{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:180px;
+        font-size: 20px;
+    }
+    #Input_username{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:300px;
+        font-size: 20px;
+    }
+    #ask_connect{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:360px;
+        font-size: 17px;
+    }
+    #ask_canvas{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:400px;
+        font-size: 17px;
+    }
+    #input_username{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:300px;
+        font-size: 15px;
+    }
+    #username{
+        z-index: 10;
+        position:absolute;
+        left: 40px;
+        top:330px;
+        width: 70px;
+        font-size: 17px;
+    }
+    body {
+        background: rgba(28, 123, 167, 0.692);
+        width: 100%;
+        position: absolute;
+        margin: 0px;
+        border: 0px;
+      
+    }
+</style>
